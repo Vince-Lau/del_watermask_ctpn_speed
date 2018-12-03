@@ -3,10 +3,8 @@ import glob
 import os
 import shutil
 import sys
-
 import numpy as np
 import tensorflow as tf
-
 sys.path.append(os.getcwd())
 from lib.networks.factory import get_network
 from lib.fast_rcnn.config import cfg, cfg_from_file
@@ -14,6 +12,11 @@ from lib.fast_rcnn.test import test_ctpn
 from lib.utils.timer import Timer
 from lib.text_connector.detectors import TextDetector
 from lib.text_connector.text_connect_cfg import Config as TextLineCfg
+
+# image slice parameter
+hight_rate = 0.92
+width_rate = 0
+scale = 1
 
 
 def resize_im(im, scale, max_scale=None):
@@ -54,17 +57,9 @@ def draw_boxes(img, image_name, boxes, scale):
 
 
 def Gaussian_Blur(img, image_name, boxes, scale):
-    img = cv2.resize(img, None, None, fx=1.0 / scale, fy=1.0 / scale, interpolation=cv2.INTER_LINEAR)
-    hight, width = img.shape[0:2]
-    other_name = image_name.split('\\')[-1]
-    tmp = other_name.split('.')
-    base_name = tmp[0] + '_blur.' + tmp[1]
+
     for box in boxes:
-        minY = min(int(box[1] / scale), int(box[3] / scale), int(box[5] / scale), int(box[7] / scale))
-        minX = min(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
-        if minY > 0.92 * hight and box[8] >= 0.8 and minX > int(0.4*width):  #
-            if np.linalg.norm(box[0] - box[1]) < 5 or np.linalg.norm(box[3] - box[0]) < 5:
-                continue
+        if box[8] >= 0.8:
             min_x = min(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
             min_y = min(int(box[1] / scale), int(box[3] / scale), int(box[5] / scale), int(box[7] / scale))
             max_x = max(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
@@ -73,27 +68,40 @@ def Gaussian_Blur(img, image_name, boxes, scale):
             blur = cv2.GaussianBlur(img_mask, (99, 99), 0)
             img[min_y:max_y, min_x:max_x] = blur
 
-    cv2.imwrite(os.path.join("data/results", base_name), img)
+    return img
 
 
 def ctpn(sess, net, image_name):
-    timer = Timer()
-    timer.tic()
+    # timer = Timer()
+    # timer.tic()
+    other_name = image_name.split('\\')[-1]
+    tmp = other_name.split('.')
+    base_name = tmp[0] + '_blur.' + tmp[1]
 
     img = cv2.imread(image_name)
-    img, scale = resize_im(img, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
-    scores, boxes = test_ctpn(sess, net, img)
+    hight, width = img.shape[0:2]
+    img_section = img[int(hight*hight_rate):hight, int(width*width_rate):width]
+
+    # img, scale = resize_im(img, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
+    scores, boxes = test_ctpn(sess, net, img_section)
 
     textdetector = TextDetector()
     boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
-    draw_boxes(img, image_name, boxes, scale)
-    # Gaussian_Blur(img, image_name, boxes, scale)
-    timer.toc()
-    print(('Detection took {:.3f}s for '
-           '{:d} object proposals').format(timer.total_time, boxes.shape[0]))
 
+    # draw_boxes(img, image_name, boxes, scale)
+    img_blur = Gaussian_Blur(img_section, image_name, boxes, scale)
+    img[int(hight * hight_rate):hight, int(width * width_rate):width] = img_blur
+
+    cv2.imwrite(os.path.join("data/results", base_name), img)
+    # timer.toc()
+    # print(('\033[34mDetection took {:.3f}s for '
+    #        '{:d} object proposals\033[0m').format(timer.total_time, boxes.shape[0]))
+    # timer.toc()
+    # print(('\033[34m pre-process took time {:.5f}s \033[0m'.format(timer.total_time)))
 
 if __name__ == '__main__':
+    timer = Timer()
+    timer.tic()
     if os.path.exists("data/results/"):
         shutil.rmtree("data/results/")
     os.makedirs("data/results/")
@@ -106,7 +114,7 @@ if __name__ == '__main__':
     # load network
     net = get_network("VGGnet_test")
     # load model
-    print(('Loading network {:s}... '.format("VGGnet_test")), end=' ')
+    # print(('Loading network {:s}... '.format("VGGnet_test")), end=' ')
     saver = tf.train.Saver()
 
     try:
@@ -123,6 +131,9 @@ if __name__ == '__main__':
 
     im_names = glob.glob(os.path.join(cfg.DATA_DIR, 'demo', '*.png')) + \
                glob.glob(os.path.join(cfg.DATA_DIR, 'demo', '*.jpg'))
+
+    timer.toc()
+    print(('\033[34mLoading model speed time {:.5f}s \033[0m'.format(timer.total_time)))
 
     for im_name in im_names:
         print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')

@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from .config import cfg
 from ..utils.blob import im_list_to_blob
+from lib.utils.timer import Timer
 
 
 def _get_image_blob(im):
@@ -38,17 +39,25 @@ def _get_blobs(im, rois):
 
 
 def test_ctpn(sess, net, im, boxes=None):
+
     blobs, im_scales = _get_blobs(im, boxes)
+
     if cfg.TEST.HAS_RPN:
         im_blob = blobs['data']
         blobs['im_info'] = np.array(
             [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
             dtype=np.float32)
+
     # forward pass
+
     if cfg.TEST.HAS_RPN:
         feed_dict = {net.data: blobs['data'], net.im_info: blobs['im_info'], net.keep_prob: 1.0}
 
-    rois = sess.run([net.get_output('rois')[0]],feed_dict=feed_dict)
+    timer = Timer()
+    timer.tic()
+    rois = sess.run([net.get_output('rois')[0]], feed_dict=feed_dict)
+    timer.toc()
+    print(('\033[34m sess.run took time {:.5f}s \033[0m'.format(timer.total_time)))
     rois=rois[0]
 
     scores = rois[:, 0]

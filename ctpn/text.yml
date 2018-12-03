@@ -36,3 +36,4 @@ TEST:
   DETECT_MODE: H
   checkpoints_path: checkpoints/
   # checkpoints_path: output/ctpn_end2end/voc_2007_trainval
+
