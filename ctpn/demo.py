@@ -14,9 +14,9 @@ from lib.text_connector.detectors import TextDetector
 from lib.text_connector.text_connect_cfg import Config as TextLineCfg
 
 # image slice parameter
-hight_rate = 0.92
+hight_rate = 0.90
 width_rate = 0
-scale = 1
+# scale = 1
 
 
 def resize_im(im, scale, max_scale=None):
@@ -57,9 +57,12 @@ def draw_boxes(img, image_name, boxes, scale):
 
 
 def Gaussian_Blur(img, image_name, boxes, scale):
-
+    img = cv2.resize(img, None, None, fx=1.0 / scale, fy=1.0 / scale, interpolation=cv2.INTER_LINEAR)
+    hight, width = img.shape[0:2]
     for box in boxes:
-        if box[8] >= 0.8:
+        minY = min(int(box[1] / scale), int(box[3] / scale), int(box[5] / scale), int(box[7] / scale))
+        minX = min(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
+        if box[8] >= 0.8 and minX > int(0.4 * width):
             min_x = min(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
             min_y = min(int(box[1] / scale), int(box[3] / scale), int(box[5] / scale), int(box[7] / scale))
             max_x = max(int(box[0] / scale), int(box[2] / scale), int(box[4] / scale), int(box[6] / scale))
@@ -72,8 +75,8 @@ def Gaussian_Blur(img, image_name, boxes, scale):
 
 
 def ctpn(sess, net, image_name):
-    # timer = Timer()
-    # timer.tic()
+    timer = Timer()
+    timer.tic()
     other_name = image_name.split('\\')[-1]
     tmp = other_name.split('.')
     base_name = tmp[0] + '_blur.' + tmp[1]
@@ -82,22 +85,26 @@ def ctpn(sess, net, image_name):
     hight, width = img.shape[0:2]
     img_section = img[int(hight*hight_rate):hight, int(width*width_rate):width]
 
-    # img, scale = resize_im(img, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
-    scores, boxes = test_ctpn(sess, net, img_section)
+    img_sec_new, scale = resize_im(img_section, scale=TextLineCfg.SCALE, max_scale=TextLineCfg.MAX_SCALE)
+    scores, boxes = test_ctpn(sess, net,  img_sec_new)
 
     textdetector = TextDetector()
-    boxes = textdetector.detect(boxes, scores[:, np.newaxis], img.shape[:2])
+    boxes = textdetector.detect(boxes, scores[:, np.newaxis], img_sec_new.shape[:2])
 
     # draw_boxes(img, image_name, boxes, scale)
-    img_blur = Gaussian_Blur(img_section, image_name, boxes, scale)
-    img[int(hight * hight_rate):hight, int(width * width_rate):width] = img_blur
+    img_blur = Gaussian_Blur(img_sec_new, image_name, boxes, scale)
+    try:
+        img[int(hight * hight_rate):hight, int(width * width_rate):width] = img_blur
+    except:
+        img = img
 
     cv2.imwrite(os.path.join("data/results", base_name), img)
-    # timer.toc()
-    # print(('\033[34mDetection took {:.3f}s for '
-    #        '{:d} object proposals\033[0m').format(timer.total_time, boxes.shape[0]))
+    timer.toc()
+    print(('\033[34mDetection took {:.3f}s for '
+           '{:d} object proposals\033[0m').format(timer.total_time, boxes.shape[0]))
     # timer.toc()
     # print(('\033[34m pre-process took time {:.5f}s \033[0m'.format(timer.total_time)))
+
 
 if __name__ == '__main__':
     timer = Timer()

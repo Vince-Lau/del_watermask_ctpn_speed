@@ -149,10 +149,10 @@ __C.TEST.checkpoints_path = "checkpoints/"
 __C.TEST.DETECT_MODE = "H" #H/O for horizontal/oriented mode
 # Scales to use during testing (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
-__C.TEST.SCALES = (300,)  # (600,)
+__C.TEST.SCALES = (400,)  # (600,)
 
 # Max pixel size of the longest side of a scaled input image
-__C.TEST.MAX_SIZE = 600  # 1000
+__C.TEST.MAX_SIZE = 800  # 1000
 
 # Overlap threshold used for non-maximum suppression (suppress boxes with
 # IoU >= this threshold)

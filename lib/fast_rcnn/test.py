@@ -52,12 +52,7 @@ def test_ctpn(sess, net, im, boxes=None):
 
     if cfg.TEST.HAS_RPN:
         feed_dict = {net.data: blobs['data'], net.im_info: blobs['im_info'], net.keep_prob: 1.0}
-
-    timer = Timer()
-    timer.tic()
     rois = sess.run([net.get_output('rois')[0]], feed_dict=feed_dict)
-    timer.toc()
-    print(('\033[34m sess.run took time {:.5f}s \033[0m'.format(timer.total_time)))
     rois=rois[0]
 
     scores = rois[:, 0]
