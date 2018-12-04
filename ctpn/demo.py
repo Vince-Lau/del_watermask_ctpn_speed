@@ -108,7 +108,9 @@ if __name__ == '__main__':
     cfg_from_file('../ctpn/text.yml')
 
     # init session
-    config = tf.ConfigProto(allow_soft_placement=True)
+    # config = tf.ConfigProto(allow_soft_placement=True)  # 允许动态分配CPU内存
+    config = tf.ConfigProto(intra_op_parallelism_threads=2, inter_op_parallelism_threads=4,
+                                device_count={'CPU': 4})
     sess = tf.Session(config=config)
     # load network
     net = get_network("VGGnet_test")
